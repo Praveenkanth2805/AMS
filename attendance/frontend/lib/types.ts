@@ -1,0 +1,54 @@
+export type Role = "admin" | "teacher";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+}
+
+export interface AcademicYear { id: string; name: string; is_active: boolean; }
+export interface Department { id: string; name: string; code: string; }
+export interface ClassRef { id: string; name: string; section: string | null; }
+
+export interface Student {
+  id: string;
+  roll_no: string;
+  name: string;
+  register_no: string | null;
+  emis: string | null;
+  umis: string | null;
+  department_id: string;
+  class_id: string;
+  academic_year_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AttendanceStatus = "present" | "absent";
+
+export interface AttendanceSession {
+  id: string;
+  class_id: string;
+  academic_year_id: string;
+  attendance_date: string;
+  submitted_by: string;
+  submitted_at: string;
+  record_count: number;
+  records: { student_id: string; status: AttendanceStatus }[];
+}
+
+export interface DashboardSummary {
+  date: string;
+  total_active_students: number;
+  present: number;
+  absent: number | null;
+  attendance_percentage: number | null;
+  submitted: boolean;
+  submitted_at: string | null;
+}
+
+export interface ApiErrorBody {
+  error: { code: string; message: string; details?: unknown };
+}

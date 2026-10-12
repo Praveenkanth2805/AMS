@@ -1,0 +1,52 @@
+from datetime import datetime
+from uuid import UUID
+from pydantic import BaseModel, Field, field_validator
+
+
+class StudentBase(BaseModel):
+    roll_no: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=200)
+    register_no: str | None = Field(default=None, max_length=64)
+    emis: str | None = Field(default=None, max_length=64)
+    umis: str | None = Field(default=None, max_length=64)
+    department_id: UUID
+    class_id: UUID
+    academic_year_id: UUID
+
+    @field_validator("roll_no", "name")
+    @classmethod
+    def _trim_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
+
+    @field_validator("emis", "umis", "register_no")
+    @classmethod
+    def _trim_optional(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+
+class StudentCreate(StudentBase):
+    pass
+
+
+class StudentUpdate(BaseModel):
+    name: str | None = None
+    register_no: str | None = None
+    emis: str | None = None
+    umis: str | None = None
+    is_active: bool | None = None
+
+
+class StudentOut(StudentBase):
+    id: UUID
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
