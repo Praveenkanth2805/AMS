@@ -95,7 +95,14 @@ const [confirmHardDelete, setConfirmHardDelete] = useState(false);
         <SearchInput value={q} onChange={(v) => { setPage(1); setQ(v); }}
                      placeholder="Search by name, roll or register no" />
 
-        {loading && rows.length === 0 && <LoadingSkeleton rows={5} />}
+        {loading && rows.length === 0 && (
+          <div className="rounded-lg border border-gray-200 overflow-hidden animate-pulse">
+            <div className="h-10 bg-green-50/50" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-10 border-t border-gray-100 bg-gray-50/40" />
+            ))}
+          </div>
+        )}
         {error && <ErrorState message={error} onRetry={load} />}
 
         {!loading && !error && rows.length === 0 && (

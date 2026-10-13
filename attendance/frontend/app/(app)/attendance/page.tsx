@@ -322,10 +322,18 @@ function Selector({
 
 function LoadingBlock() {
   return (
-    <div className="animate-pulse space-y-3">
-      <div className="h-10 bg-gray-100 rounded" />
-      <div className="h-10 bg-gray-100 rounded" />
-      <div className="h-10 bg-gray-100 rounded" />
+    <div className="space-y-4 animate-pulse">
+      <div className="flex gap-3">
+        <div className="h-9 w-32 rounded bg-gray-100" />
+        <div className="h-9 w-32 rounded bg-gray-100" />
+        <div className="h-9 w-32 rounded bg-gray-100" />
+      </div>
+      <div className="rounded-lg border border-gray-200 overflow-hidden">
+        <div className="h-10 bg-green-50/50" />
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="h-10 border-t border-gray-100 bg-gray-50/40" />
+        ))}
+      </div>
     </div>
   );
 }

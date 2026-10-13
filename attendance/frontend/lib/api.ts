@@ -1,10 +1,13 @@
 import type { ApiErrorBody } from "./types";
+import { cached, invalidate,clearCache } from "./cache";
 
 // Client-only base URL. Empty string = same-origin (Next.js rewrites handle /api/v1/*).
 // Server Components must use lib/api-server.ts instead.
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 const IS_SERVER = typeof window === "undefined";
+
+const REF_TTL = 5 * 60_000; // 5 min — reference data changes rarely
 
 export class ApiError extends Error {
   constructor(
@@ -31,7 +34,7 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
   try {
     res = await fetch(`${BASE}/api/v1${path}`, {
       ...rest,
-      credentials: "include", // cookie-based sessions
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...(headers ?? {}),
@@ -40,8 +43,6 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
     });
   } catch (e) {
     if (IS_SERVER) {
-      // Guardrail: this file is for the browser only. Server Components
-      // should import from lib/api-server.ts (absolute URL + cookie forwarding).
       throw new ApiError(
         0,
         "NETWORK_ERROR",
@@ -70,22 +71,52 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
 }
 
 export const Api = {
+  // ---------------- Auth ----------------
   login: (email: string, password: string) =>
     api<import("./types").User>("/auth/login", { method: "POST", body: { email, password } }),
-  logout: () => api<void>("/auth/logout", { method: "POST" }),
+  logout: () =>
+    api<void>("/auth/logout", { method: "POST" })
+      .finally(() => { clearCache(); }),
   me: () => api<import("./types").User>("/auth/me"),
 
-    departmentsAll: (includeInactive = false) =>
-    api<import("./types").DepartmentFull[]>(
-      `/departments?include_inactive=${includeInactive}`),
-  createDepartment: (body: { name: string; code: string }) =>
-    api<import("./types").DepartmentFull>("/departments", { method: "POST", body }),
-  updateDepartment: (id: string, body: Partial<{ name: string; code: string; is_active: boolean }>) =>
-    api<import("./types").DepartmentFull>(`/departments/${id}`, { method: "PATCH", body }),
-  deactivateDepartment: (id: string) =>
-    api<void>(`/departments/${id}`, { method: "DELETE" }),
+  // ---------------- Config ----------------
+  publicConfig: () => api<import("./types").PublicConfig>("/config"),
 
-    classesFull: (params: {
+  // ---------------- Academic years ----------------
+  academicYears: () =>
+    cached("academicYears", REF_TTL,
+      () => api<import("./types").AcademicYear[]>("/academic-years")),
+
+  // ---------------- Departments ----------------
+  departments: () =>
+    cached("departments:active", REF_TTL,
+      () => api<import("./types").Department[]>("/departments")),
+
+  departmentsAll: (includeInactive = false) =>
+    cached(`departments:all:${includeInactive}`, REF_TTL,
+      () => api<import("./types").DepartmentFull[]>(
+        `/departments?include_inactive=${includeInactive}`)),
+
+  createDepartment: (body: { name: string; code: string }) =>
+    api<import("./types").DepartmentFull>("/departments", { method: "POST", body })
+      .then((r) => { invalidate("departments"); return r; }),
+
+  updateDepartment: (id: string,
+                     body: Partial<{ name: string; code: string; is_active: boolean }>) =>
+    api<import("./types").DepartmentFull>(`/departments/${id}`, { method: "PATCH", body })
+      .then((r) => { invalidate("departments"); return r; }),
+
+  deactivateDepartment: (id: string) =>
+    api<void>(`/departments/${id}`, { method: "DELETE" })
+      .then((r) => { invalidate("departments"); return r; }),
+
+  // ---------------- Classes ----------------
+  classes: (ayId: string, deptId: string) =>
+    cached(`classes:simple:${ayId}:${deptId}`, REF_TTL,
+      () => api<import("./types").ClassRef[]>(
+        `/classes?academic_year_id=${ayId}&department_id=${deptId}`)),
+
+  classesFull: (params: {
     academic_year_id?: string;
     department_id?: string;
     include_inactive?: boolean;
@@ -94,21 +125,56 @@ export const Api = {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== "") qs.set(k, String(v));
     });
-    return api<import("./types").ClassFull[]>(`/classes?${qs.toString()}`);
+    const key = `classes:full:${qs.toString()}`;
+    return cached(key, REF_TTL,
+      () => api<import("./types").ClassFull[]>(`/classes?${qs.toString()}`));
   },
+
   createClass: (body: {
     name: string;
     section?: string | null;
     department_id: string;
     academic_year_id: string;
-  }) => api<import("./types").ClassFull>("/classes", { method: "POST", body }),
+  }) => api<import("./types").ClassFull>("/classes", { method: "POST", body })
+    .then((r) => { invalidate("classes"); return r; }),
+
   updateClass: (id: string,
                 body: Partial<{ name: string; section: string | null; is_active: boolean }>) =>
-    api<import("./types").ClassFull>(`/classes/${id}`, { method: "PATCH", body }),
-  deactivateClass: (id: string) =>
-    api<void>(`/classes/${id}`, { method: "DELETE" }),
+    api<import("./types").ClassFull>(`/classes/${id}`, { method: "PATCH", body })
+      .then((r) => { invalidate("classes"); return r; }),
 
-    importStudents: (body: {
+  deactivateClass: (id: string) =>
+    api<void>(`/classes/${id}`, { method: "DELETE" })
+      .then((r) => { invalidate("classes"); return r; }),
+
+  // ---------------- Students ----------------
+  students: (params: Record<string, string | number | boolean | undefined>) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) =>
+      v !== undefined && v !== "" && qs.set(k, String(v)));
+    return api<{
+      items: import("./types").Student[];
+      total: number;
+      page: number;
+      page_size: number;
+    }>(`/students?${qs.toString()}`);
+  },
+
+  createStudent: (body: unknown) =>
+    api<import("./types").Student>("/students", { method: "POST", body }),
+
+  updateStudent: (id: string, body: unknown) =>
+    api<import("./types").Student>(`/students/${id}`, { method: "PATCH", body }),
+
+  deactivateStudent: (id: string) =>
+    api<{ id: string; mode: string; attendance_records_removed: number }>(
+      `/students/${id}`, { method: "DELETE" }),
+
+  hardDeleteStudent: (id: string) =>
+    api<{ id: string; mode: string; attendance_records_removed: number }>(
+      `/students/${id}?hard=true`, { method: "DELETE" }),
+
+  importStudents: (body: {
     academic_year_id: string;
     department_id: string;
     class_id: string;
@@ -120,49 +186,13 @@ export const Api = {
       umis?: string | null;
       mobile?: string | null;
     }>;
-  }) => api<{ created: number; failed: { index: number; name: string; roll_no: string; reason: string }[] }>(
-    "/students/import", { method: "POST", body }),
-   
-      publicConfig: () => api<import("./types").PublicConfig>("/config"),
+  }) => api<{
+    created: number;
+    failed: { index: number; name: string; roll_no: string; reason: string }[];
+  }>("/students/import", { method: "POST", body }),
 
-  bulkImportAttendance: (body: {
-    academic_year_id: string;
-    class_id: string;
-    rows: Array<{ date: string; name?: string | null; roll_no?: string | null }>;
-  }) => api<import("./types").BulkImportResult>(
-    "/attendance/bulk-import", { method: "POST", body }),
-
-  updateAttendanceRecords: (sessionId: string, records: { student_id: string; status: string }[]) =>
-    api<import("./types").AttendanceSession>(
-      `/attendance/sessions/${sessionId}/records`,
-      { method: "PUT", body: { records } }),
-
-  academicYears: () => api<import("./types").AcademicYear[]>("/academic-years"),
-  departments: () => api<import("./types").Department[]>("/departments"),
-  classes: (ayId: string, deptId: string) =>
-    api<import("./types").ClassRef[]>(
-      `/classes?academic_year_id=${ayId}&department_id=${deptId}`),
-
-  students: (params: Record<string, string | number | boolean | undefined>) => {
-    const qs = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) =>
-      v !== undefined && v !== "" && qs.set(k, String(v)));
-    return api<{ items: import("./types").Student[]; total: number; page: number; page_size: number }>(
-      `/students?${qs.toString()}`);
-  },
-  createStudent: (body: unknown) =>
-    api<import("./types").Student>("/students", { method: "POST", body }),
-  updateStudent: (id: string, body: unknown) =>
-    api<import("./types").Student>(`/students/${id}`, { method: "PATCH", body }),
-    deactivateStudent: (id: string) =>
-    api<{ id: string; mode: string; attendance_records_removed: number }>(
-      `/students/${id}`, { method: "DELETE" }),
-
-  hardDeleteStudent: (id: string) =>
-    api<{ id: string; mode: string; attendance_records_removed: number }>(
-      `/students/${id}?hard=true`, { method: "DELETE" }),
-
-    attendanceToday: (classId: string, academicYearId: string, date?: string) => {
+  // ---------------- Attendance ----------------
+  attendanceToday: (classId: string, academicYearId: string, date?: string) => {
     const qs = new URLSearchParams({
       class_id: classId,
       academic_year_id: academicYearId,
@@ -178,10 +208,25 @@ export const Api = {
   submitAttendance: (body: unknown) =>
     api<import("./types").AttendanceSession>("/attendance/sessions", { method: "POST", body }),
 
+  updateAttendanceRecords: (sessionId: string,
+                            records: { student_id: string; status: string }[]) =>
+    api<import("./types").AttendanceSession>(
+      `/attendance/sessions/${sessionId}/records`,
+      { method: "PUT", body: { records } }),
+
+  bulkImportAttendance: (body: {
+    academic_year_id: string;
+    class_id: string;
+    rows: Array<{ date: string; name?: string | null; roll_no?: string | null }>;
+  }) => api<import("./types").BulkImportResult>(
+    "/attendance/bulk-import", { method: "POST", body }),
+
+  // ---------------- Dashboard ----------------
   dashboardSummary: (classId: string, academicYearId: string) =>
     api<import("./types").DashboardSummary>(
       `/dashboard/summary?class_id=${classId}&academic_year_id=${academicYearId}`),
 
+  // ---------------- Reports ----------------
   attendanceReport: (params: Record<string, string | undefined>) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v && qs.set(k, v));

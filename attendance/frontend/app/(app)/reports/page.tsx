@@ -247,7 +247,24 @@ export default function ReportsPage() {
       )}
 
       <div className="mt-6 space-y-4">
-        {loading && <LoadingSkeleton rows={4} />}
+        {loading && (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}
+                     className="rounded-lg border border-gray-200 p-4 space-y-3 animate-pulse">
+                  <div className="h-3 w-20 rounded bg-gray-100" />
+                  <div className="h-7 w-16 rounded bg-gray-100" />
+                </div>
+              ))}
+            </div>
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-10 border-b border-gray-100 bg-gray-50/50 animate-pulse" />
+              ))}
+            </div>
+          </>
+        )}
 
         {error && <ErrorState message={error} onRetry={load} />}
 

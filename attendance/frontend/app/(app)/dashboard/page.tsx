@@ -82,7 +82,18 @@ export default function DashboardPage() {
       <div className="mt-6">
         {error?.kind === "network" && <NetworkError onRetry={load} />}
         {error?.kind === "api" && <ErrorState message={error.msg} onRetry={load} />}
-        {loading && !data && <LoadingSkeleton rows={3} />}
+                {loading && !data && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i}
+                   className="rounded-lg border border-gray-200 p-4 space-y-3 animate-pulse">
+                <div className="h-3 w-20 rounded bg-gray-100" />
+                <div className="h-7 w-16 rounded bg-gray-100" />
+                <div className="h-3 w-24 rounded bg-gray-100" />
+              </div>
+            ))}
+          </div>
+        )}
 
         {data && (
           <>
