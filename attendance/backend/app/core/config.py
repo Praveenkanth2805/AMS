@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., min_length=32)
     ACCESS_TOKEN_TTL_MIN: int = 30
     REFRESH_TOKEN_TTL_DAYS: int = 7
-
+    ALLOW_ATTENDANCE_EDIT: bool = False
     DATABASE_URL: str
     REDIS_URL: str | None = None
 

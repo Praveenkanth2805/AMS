@@ -69,3 +69,16 @@ export interface ClassFull {
   academic_year_id: string;
   is_active: boolean;
 }
+export interface PublicConfig {
+  allow_attendance_edit: boolean;
+  academic_year_start_month: number;
+  institutional_timezone: string;
+}
+
+export interface BulkImportResult {
+  sessions_created: number;
+  dates_created: string[];
+  dates_skipped: string[];
+  students_per_session: number;
+  unknown_names: string[];
+}

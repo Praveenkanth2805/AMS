@@ -49,3 +49,39 @@ class AttendanceTodayResponse(BaseModel):
     submitted: bool
     session: AttendanceSessionOut | None = None
     students: list[dict] = []
+
+# ---------- Bulk import ----------
+
+class AttendanceBulkRow(BaseModel):
+    """One row of the source sheet. Either name or roll_no is required."""
+    date: date
+    name: str | None = None
+    roll_no: str | None = None
+
+
+class AttendanceBulkImportRequest(BaseModel):
+    academic_year_id: UUID
+    class_id: UUID
+    rows: list[AttendanceBulkRow] = Field(min_length=1, max_length=20000)
+
+
+class AttendanceBulkImportResult(BaseModel):
+    sessions_created: int
+    dates_created: list[str]
+    dates_skipped: list[str]           # already had a session
+    students_per_session: int
+    unknown_names: list[str]           # names in sheet not found in class
+
+
+# ---------- Update (edit mode) ----------
+
+class AttendanceUpdateRequest(BaseModel):
+    records: list[AttendanceItem] = Field(min_length=1)
+
+    @field_validator("records")
+    @classmethod
+    def _no_dup(cls, v: list[AttendanceItem]) -> list[AttendanceItem]:
+        ids = [r.student_id for r in v]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate student ids")
+        return v

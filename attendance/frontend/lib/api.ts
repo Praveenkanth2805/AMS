@@ -122,7 +122,21 @@ export const Api = {
     }>;
   }) => api<{ created: number; failed: { index: number; name: string; roll_no: string; reason: string }[] }>(
     "/students/import", { method: "POST", body }),
-    
+   
+      publicConfig: () => api<import("./types").PublicConfig>("/config"),
+
+  bulkImportAttendance: (body: {
+    academic_year_id: string;
+    class_id: string;
+    rows: Array<{ date: string; name?: string | null; roll_no?: string | null }>;
+  }) => api<import("./types").BulkImportResult>(
+    "/attendance/bulk-import", { method: "POST", body }),
+
+  updateAttendanceRecords: (sessionId: string, records: { student_id: string; status: string }[]) =>
+    api<import("./types").AttendanceSession>(
+      `/attendance/sessions/${sessionId}/records`,
+      { method: "PUT", body: { records } }),
+
   academicYears: () => api<import("./types").AcademicYear[]>("/academic-years"),
   departments: () => api<import("./types").Department[]>("/departments"),
   classes: (ayId: string, deptId: string) =>
@@ -140,15 +154,27 @@ export const Api = {
     api<import("./types").Student>("/students", { method: "POST", body }),
   updateStudent: (id: string, body: unknown) =>
     api<import("./types").Student>(`/students/${id}`, { method: "PATCH", body }),
-  deactivateStudent: (id: string) =>
-    api<void>(`/students/${id}`, { method: "DELETE" }),
+    deactivateStudent: (id: string) =>
+    api<{ id: string; mode: string; attendance_records_removed: number }>(
+      `/students/${id}`, { method: "DELETE" }),
 
-  attendanceToday: (classId: string, academicYearId: string) =>
-    api<{
+  hardDeleteStudent: (id: string) =>
+    api<{ id: string; mode: string; attendance_records_removed: number }>(
+      `/students/${id}?hard=true`, { method: "DELETE" }),
+
+    attendanceToday: (classId: string, academicYearId: string, date?: string) => {
+    const qs = new URLSearchParams({
+      class_id: classId,
+      academic_year_id: academicYearId,
+    });
+    if (date) qs.set("date", date);
+    return api<{
       submitted: boolean;
       session: import("./types").AttendanceSession | null;
       students: { id: string; name: string; roll_no: string }[];
-    }>(`/attendance/today?class_id=${classId}&academic_year_id=${academicYearId}`),
+    }>(`/attendance/today?${qs.toString()}`);
+  },
+
   submitAttendance: (body: unknown) =>
     api<import("./types").AttendanceSession>("/attendance/sessions", { method: "POST", body }),
 
@@ -162,10 +188,23 @@ export const Api = {
     return api<{
       range: { start: string; end: string };
       filters: Record<string, string | null>;
+      summary: {
+        total_students: number;
+        total_records: number;
+        total_present: number;
+        total_absent: number;
+        attendance_percentage: number;
+        submitted_sessions: number;
+      };
       submitted_dates: string[];
       rows: {
-        student_id: string; name: string; roll_no: string;
-        present: number; absent: number; total_records: number; percentage: number;
+        student_id: string;
+        name: string;
+        roll_no: string;
+        present: number;
+        absent: number;
+        total_records: number;
+        percentage: number;
       }[];
     }>(`/reports/attendance?${qs.toString()}`);
   },

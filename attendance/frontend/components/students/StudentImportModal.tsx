@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Upload, X, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, FileText, Upload, X } from "lucide-react";
+import { downloadCSV } from "@/lib/csv";
 
 import { Api, ApiError } from "@/lib/api";
 import type { AcademicYear, ClassRef, Department } from "@/lib/types";
@@ -91,7 +92,16 @@ interface ParsedRow {
   umis?: string;
   mobile?: string;
 }
-
+  function downloadTemplate() {
+    downloadCSV(
+      "student_import_template.csv",
+      ["roll_no", "name", "register_no", "emis", "umis", "mobile"],
+      [
+        ["", "Aarthi S", "2023001", "EMIS123", "UMIS001", "9876543210"],
+        ["", "Bharath K", "2023002", "EMIS124", "UMIS002", "9876543211"],
+      ],
+    );
+  }
 // ---------- Component ----------
 
 export default function StudentImportModal({ open, onClose, onImported }: Props) {
@@ -306,9 +316,18 @@ export default function StudentImportModal({ open, onClose, onImported }: Props)
 
           {/* File upload */}
           <div>
-            <label className="text-sm font-medium text-gray-800 block mb-1">
-              CSV file (or paste below)
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-800">
+                CSV file (or paste below)
+              </label>
+              <button
+                type="button"
+                onClick={downloadTemplate}
+                className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline"
+              >
+                <Download size={14} /> Download template
+              </button>
+            </div>
             <div className="flex items-center gap-3">
               <label className="inline-flex items-center gap-2 rounded-md border border-gray-300
                                 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
@@ -317,7 +336,7 @@ export default function StudentImportModal({ open, onClose, onImported }: Props)
                        onChange={handleFile} />
               </label>
               <span className="text-xs text-gray-500">
-                Headers detected: roll_no, name, register_no, emis, umis, mobile
+                Headers: roll_no, name, register_no, emis, umis, mobile
               </span>
             </div>
           </div>

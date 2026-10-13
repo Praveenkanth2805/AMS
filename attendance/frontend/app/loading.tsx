@@ -1,8 +1,12 @@
-export default function Loading() {
+import { Loader2 } from "lucide-react";
+
+export default function RootLoading() {
   return (
-    <div className="p-6 space-y-4" aria-busy="true" aria-live="polite">
-      <div className="h-8 w-48 bg-gray-100 rounded animate-pulse" />
-      <div className="h-40 bg-gray-100 rounded animate-pulse" />
+    <div className="min-h-screen grid place-items-center bg-white">
+      <div className="flex flex-col items-center gap-3 text-gray-500">
+        <Loader2 className="animate-spin text-green-700" size={36} />
+        <span className="text-sm">Loading…</span>
+      </div>
     </div>
   );
 }

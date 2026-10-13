@@ -20,7 +20,7 @@ import StudentImportModal from "@/components/students/StudentImportModal";
 export default function StudentsPage() {
   const { push } = useToast();
 const [showImport, setShowImport] = useState(false);
-
+const [confirmHardDelete, setConfirmHardDelete] = useState(false);
   const [rows, setRows] = useState<Student[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -50,11 +50,18 @@ const [showImport, setShowImport] = useState(false);
     { key: "emis", header: "EMIS", cell: (r) => r.emis ?? "—" },
     { key: "status", header: "Status",
       cell: (r) => <StatusBadge value={r.is_active ? "active" : "inactive"} /> },
-    { key: "actions", header: "", align: "right", cell: (r) => (
+        { key: "actions", header: "", align: "right", cell: (r) => (
       r.is_active ? (
-        <button onClick={() => setConfirmId(r.id)} className="text-sm text-red-700 underline">
-          Deactivate
-        </button>
+        <div className="flex justify-end gap-3">
+          <button onClick={() => setConfirmId(r.id)}
+                  className="text-sm text-gray-600 hover:text-gray-900 underline">
+            Deactivate
+          </button>
+          <button onClick={() => { setConfirmId(null); setConfirmHardDelete(true); setConfirmId(r.id); }}
+                  className="text-sm text-red-700 underline">
+            Delete
+          </button>
+        </div>
       ) : null
     ) },
   ];
@@ -139,7 +146,7 @@ const [showImport, setShowImport] = useState(false);
         title="Deactivate student?"
         description="This preserves attendance history and hides the student from active rosters."
         confirmLabel="Deactivate" tone="danger"
-        onCancel={() => setConfirmId(null)}
+        onCancel={() => { setConfirmId(null); setConfirmHardDelete(false); }}
         onConfirm={async () => {
           if (!confirmId) return;
           try {
@@ -149,6 +156,26 @@ const [showImport, setShowImport] = useState(false);
             load();
           } catch {
             push("error", "Could not deactivate student.");
+          }
+        }}
+      />
+            <ConfirmDialog
+        open={!!confirmId && confirmHardDelete}
+        title="Permanently delete student?"
+        description="This removes the student AND all their attendance records. Sessions that become empty are removed too. This cannot be undone."
+        confirmLabel="Delete forever" tone="danger"
+        onCancel={() => { setConfirmId(null); setConfirmHardDelete(false); }}
+        onConfirm={async () => {
+          if (!confirmId) return;
+          try {
+            const res = await Api.hardDeleteStudent(confirmId);
+            push("success",
+              `Student deleted. ${res.attendance_records_removed} attendance record(s) removed.`);
+            setConfirmId(null);
+            setConfirmHardDelete(false);
+            load();
+          } catch {
+            push("error", "Could not delete student.");
           }
         }}
       />
