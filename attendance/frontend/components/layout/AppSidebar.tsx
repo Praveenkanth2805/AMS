@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarCheck, LayoutDashboard, Users, FileBarChart2 } from "lucide-react";
+import { Building2, CalendarCheck, FileBarChart2, LayoutDashboard, Users } from "lucide-react";
 import type { User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -9,18 +9,19 @@ const ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/attendance", label: "Attendance", Icon: CalendarCheck },
   { href: "/students", label: "Students", Icon: Users },
+  { href: "/departments", label: "Departments", Icon: Building2 },
   { href: "/reports", label: "Reports", Icon: FileBarChart2 },
 ];
 
 export default function AppSidebar({ user }: { user: User }) {
   const pathname = usePathname();
   return (
-    <aside className="hidden md:flex md:w-56 lg:w-64 flex-col border-r border-gray-200 bg-white">
-      <div className="px-5 py-4 border-b border-gray-100">
+    <aside className="hidden md:flex md:w-56 lg:w-64 flex-col border-r border-gray-200 bg-white h-screen shrink-0">
+      <div className="px-5 py-4 border-b border-gray-100 shrink-0">
         <div className="font-semibold text-green-800">Attendance</div>
         <div className="text-xs text-gray-500 mt-0.5">{user.role}</div>
       </div>
-      <nav aria-label="Main" className="p-3 space-y-1">
+      <nav aria-label="Main" className="p-3 space-y-1 overflow-y-auto flex-1">
         {ITEMS.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (

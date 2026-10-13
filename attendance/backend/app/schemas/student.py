@@ -9,6 +9,7 @@ class StudentBase(BaseModel):
     register_no: str | None = Field(default=None, max_length=64)
     emis: str | None = Field(default=None, max_length=64)
     umis: str | None = Field(default=None, max_length=64)
+    mobile: str | None = Field(default=None, max_length=20)
     department_id: UUID
     class_id: UUID
     academic_year_id: UUID
@@ -21,7 +22,7 @@ class StudentBase(BaseModel):
             raise ValueError("must not be blank")
         return v
 
-    @field_validator("emis", "umis", "register_no")
+    @field_validator("emis", "umis", "register_no", "mobile")
     @classmethod
     def _trim_optional(cls, v: str | None) -> str | None:
         if v is None:
@@ -39,6 +40,7 @@ class StudentUpdate(BaseModel):
     register_no: str | None = None
     emis: str | None = None
     umis: str | None = None
+    mobile: str | None = None
     is_active: bool | None = None
 
 
@@ -50,3 +52,34 @@ class StudentOut(StudentBase):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Bulk import ----------
+
+class StudentImportRow(BaseModel):
+    roll_no: str | None = None
+    name: str = Field(min_length=1, max_length=200)
+    register_no: str | None = None
+    emis: str | None = None
+    umis: str | None = None
+    mobile: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _trim_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("name must not be blank")
+        return v
+
+
+class StudentImportRequest(BaseModel):
+    academic_year_id: UUID
+    department_id: UUID
+    class_id: UUID
+    rows: list[StudentImportRow] = Field(min_length=1, max_length=2000)
+
+
+class StudentImportResult(BaseModel):
+    created: int
+    failed: list[dict]

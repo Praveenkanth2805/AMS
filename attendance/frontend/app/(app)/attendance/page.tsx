@@ -124,7 +124,8 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end gap-3">
+      <header className="flex flex-row flex-nowrap items-end gap-2 sm:gap-3
+                         overflow-x-auto pb-1">
         <Selector label="Academic Year" value={yearId} onChange={setYearId}
           options={years.map((y) => ({ value: y.id, label: y.name }))} />
         <Selector label="Department" value={deptId} onChange={setDeptId}
@@ -213,15 +214,18 @@ export default function AttendancePage() {
 
 function Selector({
   label, value, onChange, options,
-}: { label: string; value: string; onChange: (v: string) => void;
-     options: { value: string; label: string }[] }) {
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
   return (
-    <label className="flex flex-col text-sm">
-      <span className="text-gray-600 mb-1">{label}</span>
+    <label className="flex flex-col text-sm flex-1 sm:min-w-[160px]">
+      <span className="text-gray-600 mb-1 whitespace-nowrap">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-gray-300 px-3 py-2 min-w-[180px] focus:outline-none focus:ring-2 focus:ring-green-600"
+        className="w-full rounded-md border border-gray-300 px-3 py-2
+                   focus:outline-none focus:ring-2 focus:ring-green-600"
       >
         {options.length === 0 && <option value="">—</option>}
         {options.map((o) => (

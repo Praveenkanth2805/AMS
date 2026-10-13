@@ -59,21 +59,21 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" description={data ? `Date: ${data.date}` : undefined} />
 
       <FilterBar>
-        <FilterField label="Academic Year">
+                <FilterField label="Academic Year">
           <select value={yearId} onChange={(e) => setYearId(e.target.value)}
-                  className="rounded-md border border-gray-300 px-3 py-2">
+                  className="w-full rounded-md border border-gray-300 px-3 py-2">
             {years.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
           </select>
         </FilterField>
         <FilterField label="Department">
           <select value={deptId} onChange={(e) => setDeptId(e.target.value)}
-                  className="rounded-md border border-gray-300 px-3 py-2">
+                  className="w-full rounded-md border border-gray-300 px-3 py-2">
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </FilterField>
         <FilterField label="Class">
           <select value={classId} onChange={(e) => setClassId(e.target.value)}
-                  className="rounded-md border border-gray-300 px-3 py-2">
+                  className="w-full rounded-md border border-gray-300 px-3 py-2">
             {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </FilterField>

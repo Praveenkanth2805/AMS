@@ -22,6 +22,7 @@ class Student(Base):
     register_no: Mapped[str | None] = mapped_column(String(64), nullable=True)
     emis: Mapped[str | None] = mapped_column(String(64), nullable=True)
     umis: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mobile: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     department_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("departments.id", ondelete="RESTRICT"), nullable=False)

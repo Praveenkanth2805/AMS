@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Menu, X, LayoutDashboard, CalendarCheck, Users, FileBarChart2 } from "lucide-react";
+import { Menu, X, LayoutDashboard, CalendarCheck, Users, FileBarChart2, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/attendance", label: "Attendance", Icon: CalendarCheck },
   { href: "/students", label: "Students", Icon: Users },
+  { href: "/departments", label: "Departments", Icon: Building2 },
   { href: "/reports", label: "Reports", Icon: FileBarChart2 },
 ];
 
@@ -37,8 +38,8 @@ export default function MobileNavigation() {
 
       {open && (
         <div className="md:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl p-3">
+          <div className="absolute inset-0 bg-white" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-0 h-full w-64 bg-white shadow-xl p-3 z-10">
             <div className="flex items-center justify-between px-2 py-1">
               <span className="font-semibold text-green-800">Attendance</span>
               <button aria-label="Close navigation" onClick={() => setOpen(false)}>

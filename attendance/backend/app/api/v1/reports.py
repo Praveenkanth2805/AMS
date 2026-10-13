@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -20,22 +20,36 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 def _report_rows(db: Session, start: date, end: date,
                  class_id: UUID | None, department_id: UUID | None,
                  academic_year_id: UUID | None) -> list[dict]:
+    """Roster-inclusive report: LEFT JOIN so every active student appears."""
+    attendance_sum = (
+        select(
+            AttendanceRecord.student_id.label("sid"),
+            func.count(AttendanceRecord.id).label("total_records"),
+            func.coalesce(
+                func.sum(case((AttendanceRecord.status == "present", 1), else_=0)),
+                0,
+            ).label("present"),
+        )
+        .where(AttendanceRecord.attendance_date.between(start, end))
+        .group_by(AttendanceRecord.student_id)
+        .subquery()
+    )
+
     stmt = (
         select(
-            AttendanceRecord.student_id,
+            Student.id.label("student_id"),
             Student.name,
             Student.roll_no,
-            func.count().label("total_records"),
-            func.sum((AttendanceRecord.status == "present").cast(func.INTEGER)).label("present"),
+            func.coalesce(attendance_sum.c.total_records, 0).label("total_records"),
+            func.coalesce(attendance_sum.c.present, 0).label("present"),
         )
-        .join(Student, Student.id == AttendanceRecord.student_id)
-        .join(AttendanceSession, AttendanceSession.id == AttendanceRecord.session_id)
-        .where(AttendanceRecord.attendance_date.between(start, end))
-        .group_by(AttendanceRecord.student_id, Student.name, Student.roll_no)
+        .select_from(Student)
+        .outerjoin(attendance_sum, attendance_sum.c.sid == Student.id)
+        .where(Student.is_active.is_(True))
         .order_by(Student.roll_no)
     )
     if class_id:
-        stmt = stmt.where(AttendanceSession.class_id == class_id)
+        stmt = stmt.where(Student.class_id == class_id)
     if department_id:
         stmt = stmt.where(Student.department_id == department_id)
     if academic_year_id:
@@ -57,22 +71,39 @@ def _report_rows(db: Session, start: date, end: date,
     return rows
 
 
+def _submitted_dates(db: Session, start: date, end: date,
+                     class_id: UUID | None) -> list[str]:
+    stmt = (
+        select(AttendanceSession.attendance_date)
+        .where(AttendanceSession.attendance_date.between(start, end))
+        .distinct()
+    )
+    if class_id:
+        stmt = stmt.where(AttendanceSession.class_id == class_id)
+    return sorted(d.isoformat() for (d,) in db.execute(stmt))
+
+
 @router.get("/attendance")
-def attendance_report(start: date, end: date,
-                      class_id: UUID | None = None,
-                      department_id: UUID | None = None,
-                      academic_year_id: UUID | None = None,
-                      db: Session = Depends(get_db),
-                      _: User = Depends(get_current_user)):
+def attendance_report(
+    start: date,
+    end: date,
+    class_id: UUID | None = None,
+    department_id: UUID | None = None,
+    academic_year_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     if end < start:
         return {"error": {"code": "VALIDATION_ERROR",
                           "message": "end must be >= start"}}
-    rows = _report_rows(db, start, end, class_id, department_id, academic_year_id)
 
-    missing_q = select(AttendanceSession.attendance_date).distinct()
-    if class_id:
-        missing_q = missing_q.where(AttendanceSession.class_id == class_id)
-    submitted_dates = {r for (r,) in db.execute(missing_q)}
+    rows = _report_rows(db, start, end, class_id, department_id, academic_year_id)
+    submitted_dates = _submitted_dates(db, start, end, class_id)
+
+    total_records = sum(r["total_records"] for r in rows)
+    total_present = sum(r["present"] for r in rows)
+    total_absent = sum(r["absent"] for r in rows)
+    overall_pct = round(total_present / total_records * 100, 2) if total_records else 0.0
 
     return {
         "range": {"start": start.isoformat(), "end": end.isoformat()},
@@ -81,7 +112,15 @@ def attendance_report(start: date, end: date,
             "department_id": str(department_id) if department_id else None,
             "academic_year_id": str(academic_year_id) if academic_year_id else None,
         },
-        "submitted_dates": sorted(d.isoformat() for d in submitted_dates),
+        "summary": {
+            "total_students": len(rows),
+            "total_records": total_records,
+            "total_present": total_present,
+            "total_absent": total_absent,
+            "attendance_percentage": overall_pct,
+            "submitted_sessions": len(submitted_dates),
+        },
+        "submitted_dates": submitted_dates,
         "rows": rows,
     }
 

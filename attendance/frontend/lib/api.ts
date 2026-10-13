@@ -75,6 +75,54 @@ export const Api = {
   logout: () => api<void>("/auth/logout", { method: "POST" }),
   me: () => api<import("./types").User>("/auth/me"),
 
+    departmentsAll: (includeInactive = false) =>
+    api<import("./types").DepartmentFull[]>(
+      `/departments?include_inactive=${includeInactive}`),
+  createDepartment: (body: { name: string; code: string }) =>
+    api<import("./types").DepartmentFull>("/departments", { method: "POST", body }),
+  updateDepartment: (id: string, body: Partial<{ name: string; code: string; is_active: boolean }>) =>
+    api<import("./types").DepartmentFull>(`/departments/${id}`, { method: "PATCH", body }),
+  deactivateDepartment: (id: string) =>
+    api<void>(`/departments/${id}`, { method: "DELETE" }),
+
+    classesFull: (params: {
+    academic_year_id?: string;
+    department_id?: string;
+    include_inactive?: boolean;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== "") qs.set(k, String(v));
+    });
+    return api<import("./types").ClassFull[]>(`/classes?${qs.toString()}`);
+  },
+  createClass: (body: {
+    name: string;
+    section?: string | null;
+    department_id: string;
+    academic_year_id: string;
+  }) => api<import("./types").ClassFull>("/classes", { method: "POST", body }),
+  updateClass: (id: string,
+                body: Partial<{ name: string; section: string | null; is_active: boolean }>) =>
+    api<import("./types").ClassFull>(`/classes/${id}`, { method: "PATCH", body }),
+  deactivateClass: (id: string) =>
+    api<void>(`/classes/${id}`, { method: "DELETE" }),
+
+    importStudents: (body: {
+    academic_year_id: string;
+    department_id: string;
+    class_id: string;
+    rows: Array<{
+      roll_no?: string | null;
+      name: string;
+      register_no?: string | null;
+      emis?: string | null;
+      umis?: string | null;
+      mobile?: string | null;
+    }>;
+  }) => api<{ created: number; failed: { index: number; name: string; roll_no: string; reason: string }[] }>(
+    "/students/import", { method: "POST", body }),
+    
   academicYears: () => api<import("./types").AcademicYear[]>("/academic-years"),
   departments: () => api<import("./types").Department[]>("/departments"),
   classes: (ayId: string, deptId: string) =>

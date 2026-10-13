@@ -29,11 +29,11 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen flex bg-white text-gray-900">
+    <div className="h-screen flex bg-white text-gray-900 overflow-hidden">
       <AppSidebar user={user} />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         <Topbar user={user} />
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

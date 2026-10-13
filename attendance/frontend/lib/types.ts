@@ -18,6 +18,7 @@ export interface Student {
   register_no: string | null;
   emis: string | null;
   umis: string | null;
+  mobile: string | null;
   department_id: string;
   class_id: string;
   academic_year_id: string;
@@ -51,4 +52,20 @@ export interface DashboardSummary {
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
+}
+
+export interface DepartmentFull {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+}
+
+export interface ClassFull {
+  id: string;
+  name: string;
+  section: string | null;
+  department_id: string;
+  academic_year_id: string;
+  is_active: boolean;
 }

@@ -106,3 +106,83 @@ def deactivate_student(student_id: UUID, db: Session = Depends(get_db),
         raise NotFound("student not found")
     s.is_active = False
     db.commit()
+
+from app.schemas.student import (StudentCreate, StudentImportRequest,
+                                 StudentImportResult, StudentOut, StudentUpdate)
+
+
+@router.post("/import", response_model=StudentImportResult, status_code=201)
+def import_students(body: StudentImportRequest,
+                    db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    """Bulk create. Validates class relationship. Auto-generates roll_no
+    if missing (sequential within the class)."""
+    _assert_relationship(db, body.class_id, body.department_id,
+                         body.academic_year_id)
+
+    # Find current max numeric roll_no suffix (for auto-generation)
+    def _parse_roll_suffix(rn: str) -> int | None:
+        try:
+            return int("".join(ch for ch in rn if ch.isdigit()) or "-1")
+        except ValueError:
+            return None
+
+    existing = db.scalars(
+        select(Student.roll_no).where(
+            Student.class_id == body.class_id,
+            Student.academic_year_id == body.academic_year_id,
+        )
+    ).all()
+    used_rolls = set(existing)
+    max_num = max((_parse_roll_suffix(r) or 0) for r in existing) if existing else 0
+
+    created = 0
+    failed: list[dict] = []
+
+    for idx, row in enumerate(body.rows):
+        roll = (row.roll_no or "").strip()
+        if not roll:
+            max_num += 1
+            roll = str(max_num)
+
+        if roll in used_rolls:
+            failed.append({
+                "index": idx, "name": row.name, "roll_no": roll,
+                "reason": "duplicate roll number in this class",
+            })
+            continue
+
+        try:
+            student = Student(
+                roll_no=roll,
+                name=row.name,
+                register_no=row.register_no,
+                emis=row.emis,
+                umis=row.umis,
+                mobile=row.mobile,
+                department_id=body.department_id,
+                class_id=body.class_id,
+                academic_year_id=body.academic_year_id,
+                is_active=True,
+            )
+            db.add(student)
+            db.flush()
+            used_rolls.add(roll)
+            created += 1
+        except IntegrityError as e:
+            db.rollback()
+            failed.append({
+                "index": idx, "name": row.name, "roll_no": roll,
+                "reason": "duplicate or constraint violation",
+            })
+            # Restart transaction for subsequent rows
+            db.begin()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return StudentImportResult(created=0, failed=[{"index": -1,
+            "name": "*", "roll_no": "*", "reason": "batch commit failed"}])
+
+    return StudentImportResult(created=created, failed=failed)
