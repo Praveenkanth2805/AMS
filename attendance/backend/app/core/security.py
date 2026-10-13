@@ -25,9 +25,16 @@ def _encode(sub: str, ttl: timedelta, typ: str, **claims: Any) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-def create_access_token(user_id: str, role: str) -> str:
-    return _encode(user_id, timedelta(minutes=settings.ACCESS_TOKEN_TTL_MIN),
-                   "access", role=role)
+def create_access_token(user_id: str, role: str, email: str = "",
+                        name: str = "") -> str:
+    return _encode(
+        user_id,
+        timedelta(minutes=settings.ACCESS_TOKEN_TTL_MIN),
+        "access",
+        role=role,
+        email=email,
+        name=name,
+    )
 
 
 def create_refresh_token(user_id: str) -> str:

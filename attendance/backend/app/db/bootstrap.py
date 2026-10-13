@@ -169,6 +169,9 @@ def bootstrap_database() -> None:
     log.info("=== Bootstrap start (env=%s, reset=%s) ===",
              settings.APP_ENV, settings.RESET_DB)
     ensure_schema()
+
+    from app.db.indexes import ensure_indexes
+    ensure_indexes()
     seed_defaults()
 
     try:
@@ -188,3 +191,4 @@ def bootstrap_database() -> None:
 
     elapsed = (time.monotonic() - t0) * 1000
     log.info("=== Bootstrap complete (%.0f ms) ===", elapsed)
+

@@ -55,7 +55,15 @@ async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
     )
 
 
-async def unhandled_handler(_: Request, __: Exception) -> JSONResponse:
+import logging
+_log = logging.getLogger("errors")
+
+
+async def unhandled_handler(request: Request, exc: Exception) -> JSONResponse:
+    _log.exception(
+        "Unhandled error on %s %s",
+        request.method, request.url.path,
+    )
     return JSONResponse(
         status_code=500,
         content={"error": {"code": "INTERNAL_ERROR",

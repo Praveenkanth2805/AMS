@@ -1,4 +1,5 @@
 from uuid import UUID
+from dataclasses import dataclass
 from fastapi import Cookie, Depends, Header, Request
 from sqlalchemy.orm import Session
 
@@ -6,6 +7,15 @@ from app.core.errors import Forbidden, Unauthenticated
 from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.user import User
+
+
+@dataclass
+class AuthUser:
+    """Lightweight user identity — no DB hit per request."""
+    id: UUID
+    role: str
+    email: str
+    name: str
 
 
 def _token_from_request(request: Request, cookie_token: str | None,
@@ -21,8 +31,7 @@ def get_current_user(
     request: Request,
     access_token: str | None = Cookie(default=None, alias="access_token"),
     authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-) -> User:
+) -> AuthUser:
     token = _token_from_request(request, access_token, authorization)
     if not token:
         raise Unauthenticated()
@@ -33,13 +42,15 @@ def get_current_user(
     if claims.get("typ") != "access":
         raise Unauthenticated()
 
-    user = db.get(User, UUID(claims["sub"]))
-    if not user or not user.is_active:
-        raise Unauthenticated()
-    return user
+    return AuthUser(
+        id=UUID(claims["sub"]),
+        role=claims.get("role", "teacher"),
+        email=claims.get("email", ""),
+        name=claims.get("name", ""),
+    )
 
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
+def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
     if user.role != "admin":
         raise Forbidden("admin role required")
     return user
