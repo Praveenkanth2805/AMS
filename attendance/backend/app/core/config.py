@@ -28,11 +28,11 @@ class Settings(BaseSettings):
     RATE_LIMIT_WRITE: str = "60/minute"
 
     AUTO_CREATE_TABLES: bool = True
-    AUTO_SEED_DEFAULTS: bool = True
+    AUTO_SEED_DEFAULTS: bool = True       # seeds current academic year only
+    RESET_DB: bool = False                # DANGER: drops every table on startup
 
-    BOOTSTRAP_ADMIN_EMAIL: str = "admin@example.com"
-    BOOTSTRAP_ADMIN_PASSWORD: str = "ChangeMe123!"
-    BOOTSTRAP_ADMIN_NAME: str = "Administrator"
+    # NOTE: Admin users are NOT auto-created. Use:
+    #   python -m scripts.create_admin --email ... --name ... --role admin
 
     @field_validator("ACADEMIC_YEAR_START_MONTH")
     @classmethod
@@ -44,11 +44,18 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     @classmethod
     def _reject_placeholder(cls, v: str) -> str:
-        if "changeme" in v.lower() or "change-this" in v.lower():
-            # allow in dev, but reject in prod
-            import os
-            if os.getenv("APP_ENV") == "prod":
+        import os
+        if os.getenv("APP_ENV") == "prod":
+            if "changeme" in v.lower() or "change-this" in v.lower():
                 raise ValueError("SECRET_KEY must not be a placeholder in prod")
+        return v
+
+    @field_validator("RESET_DB")
+    @classmethod
+    def _no_reset_in_prod(cls, v: bool) -> bool:
+        import os
+        if v and os.getenv("APP_ENV") == "prod":
+            raise ValueError("RESET_DB cannot be true when APP_ENV=prod")
         return v
 
 

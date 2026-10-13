@@ -23,3 +23,6 @@ clean:
 	find . -type d -name .pytest_cache -exec rm -rf {} +
 	find . -type d -name .ruff_cache -exec rm -rf {} +
 	rm -rf *.egg-info build dist
+
+reset:
+	python -m scripts.reset_db

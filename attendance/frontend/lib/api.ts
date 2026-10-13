@@ -1,6 +1,10 @@
 import type { ApiErrorBody } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Client-only base URL. Empty string = same-origin (Next.js rewrites handle /api/v1/*).
+// Server Components must use lib/api-server.ts instead.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+const IS_SERVER = typeof window === "undefined";
 
 export class ApiError extends Error {
   constructor(
@@ -10,10 +14,12 @@ export class ApiError extends Error {
     public details?: unknown,
   ) {
     super(message);
+    this.name = "ApiError";
   }
   get isRateLimited() { return this.code === "RATE_LIMITED"; }
   get isUnauthenticated() { return this.code === "UNAUTHENTICATED"; }
   get isForbidden() { return this.code === "FORBIDDEN"; }
+  get isNetworkError() { return this.code === "NETWORK_ERROR"; }
 }
 
 type Opts = Omit<RequestInit, "body"> & { body?: unknown; json?: boolean };
@@ -32,8 +38,21 @@ export async function api<T>(path: string, opts: Opts = {}): Promise<T> {
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch {
-    throw new ApiError(0, "NETWORK_ERROR", "Network unavailable.");
+  } catch (e) {
+    if (IS_SERVER) {
+      // Guardrail: this file is for the browser only. Server Components
+      // should import from lib/api-server.ts (absolute URL + cookie forwarding).
+      throw new ApiError(
+        0,
+        "NETWORK_ERROR",
+        "lib/api.ts was used on the server. Use lib/api-server.ts in Server Components.",
+      );
+    }
+    throw new ApiError(
+      0,
+      "NETWORK_ERROR",
+      e instanceof Error ? e.message : "Network unavailable.",
+    );
   }
 
   if (res.status === 204) return undefined as T;

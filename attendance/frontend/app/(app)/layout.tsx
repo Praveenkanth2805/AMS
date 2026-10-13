@@ -1,15 +1,30 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Api, ApiError } from "@/lib/api";
+import { ServerApiError, serverFetchMe, type ServerUser } from "@/lib/api-server";
 import AppSidebar from "@/components/layout/AppSidebar";
 import Topbar from "@/components/layout/Topbar";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  // Note: middleware also redirects, but backend is authoritative (spec §7).
-  let user;
+export const dynamic = "force-dynamic";
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const cookieHeader = cookies().toString();
+
+  if (!cookieHeader.includes("access_token=")) {
+    redirect("/login");
+  }
+
+  let user: ServerUser;
   try {
-    user = await Api.me();
+    user = await serverFetchMe(cookieHeader);
   } catch (err) {
-    if (err instanceof ApiError && err.isUnauthenticated) redirect("/login");
+    if (err instanceof ServerApiError) {
+      if (err.isUnauthenticated) redirect("/login");
+      throw new Error(`Auth check failed: ${err.message}`);
+    }
     throw err;
   }
 

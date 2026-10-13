@@ -15,16 +15,30 @@ from app.schemas.auth import LoginRequest, UserOut
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
-COOKIE = dict(httponly=True, secure=settings.COOKIE_SECURE,
-              samesite=settings.COOKIE_SAMESITE, domain=settings.COOKIE_DOMAIN,
-              path="/")
+
+def _cookie_domain() -> str | None:
+    """Return cookie domain or None. Empty string must become None —
+    otherwise Starlette emits 'Domain=;' which browsers reject."""
+    d = (settings.COOKIE_DOMAIN or "").strip()
+    return d or None
+
+
+def _cookie_kwargs() -> dict:
+    return dict(
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=_cookie_domain(),
+        path="/",
+    )
 
 
 def _set_session_cookies(response: Response, access: str, refresh: str) -> None:
+    kw = _cookie_kwargs()
     response.set_cookie("access_token", access,
-                        max_age=settings.ACCESS_TOKEN_TTL_MIN * 60, **COOKIE)
+                        max_age=settings.ACCESS_TOKEN_TTL_MIN * 60, **kw)
     response.set_cookie("refresh_token", refresh,
-                        max_age=settings.REFRESH_TOKEN_TTL_DAYS * 86400, **COOKIE)
+                        max_age=settings.REFRESH_TOKEN_TTL_DAYS * 86400, **kw)
 
 
 @router.post("/login", response_model=UserOut)
@@ -57,14 +71,16 @@ async def refresh(response: Response, db: Session = Depends(get_db),
         raise Unauthenticated()
     access = create_access_token(str(user.id), user.role)
     response.set_cookie("access_token", access,
-                        max_age=settings.ACCESS_TOKEN_TTL_MIN * 60, **COOKIE)
+                        max_age=settings.ACCESS_TOKEN_TTL_MIN * 60,
+                        **_cookie_kwargs())
     return user
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(response: Response):
-    response.delete_cookie("access_token", path="/", domain=settings.COOKIE_DOMAIN)
-    response.delete_cookie("refresh_token", path="/", domain=settings.COOKIE_DOMAIN)
+    kw = _cookie_kwargs()
+    response.delete_cookie("access_token", path="/", domain=kw["domain"])
+    response.delete_cookie("refresh_token", path="/", domain=kw["domain"])
 
 
 @router.get("/me", response_model=UserOut)

@@ -10,7 +10,7 @@ import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
 import LoadingSkeleton from "@/components/ui/LoadingSkeleton";
 import NetworkError from "@/components/ui/NetworkError";
-import { FilterBar, FilterField } from "@/components/ui/FilterBar";
+import FilterBar,{ FilterField } from "@/components/ui/FilterBar";
 
 export default function DashboardPage() {
   const [years, setYears] = useState<AcademicYear[]>([]);
