@@ -205,11 +205,18 @@ export const Api = {
     }>(`/attendance/today?${qs.toString()}`);
   },
 
-  submitAttendance: (body: unknown) =>
-    api<import("./types").AttendanceSession>("/attendance/sessions", { method: "POST", body }),
+    submitAttendance: (body: {
+    academic_year_id: string;
+    class_id: string;
+    attendance_date?: string;
+    records: { student_id: string; periods: boolean[] }[];
+  }) => api<import("./types").AttendanceSession>(
+    "/attendance/sessions",
+    { method: "POST", body },
+  ),
 
-  updateAttendanceRecords: (sessionId: string,
-                            records: { student_id: string; status: string }[]) =>
+    updateAttendanceRecords: (sessionId: string,
+                            records: { student_id: string; periods: boolean[] }[]) =>
     api<import("./types").AttendanceSession>(
       `/attendance/sessions/${sessionId}/records`,
       { method: "PUT", body: { records } }),
