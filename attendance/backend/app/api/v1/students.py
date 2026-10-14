@@ -65,7 +65,7 @@ def list_students(
 
 @router.post("", response_model=StudentOut, status_code=201)
 def create_student(body: StudentCreate, db: Session = Depends(get_db),
-                   user: User = Depends(get_current_user)):
+                   user: User = Depends(require_admin)):
     _assert_relationship(db, body.class_id, body.department_id, body.academic_year_id)
     student = Student(**body.model_dump())
     db.add(student)
@@ -81,7 +81,7 @@ def create_student(body: StudentCreate, db: Session = Depends(get_db),
 @router.post("/import", response_model=StudentImportResult, status_code=201)
 def import_students(body: StudentImportRequest,
                     db: Session = Depends(get_db),
-                    user: User = Depends(get_current_user)):
+                    user: User = Depends(require_admin)):
     _assert_relationship(db, body.class_id, body.department_id,
                          body.academic_year_id)
 
@@ -163,13 +163,32 @@ def get_student(student_id: UUID, db: Session = Depends(get_db),
 @router.patch("/{student_id}", response_model=StudentOut)
 def update_student(student_id: UUID, body: StudentUpdate,
                    db: Session = Depends(get_db),
-                   _: User = Depends(get_current_user)):
+                   _: User = Depends(require_admin)):
     s = db.get(Student, student_id)
     if not s:
         raise NotFound("student not found")
-    for k, v in body.model_dump(exclude_unset=True).items():
+
+    data = body.model_dump(exclude_unset=True)
+    # Handle roll_no conflict explicitly for a clean error
+    if "roll_no" in data and data["roll_no"]:
+        conflict = db.scalar(
+            select(Student).where(
+                Student.class_id == s.class_id,
+                Student.academic_year_id == s.academic_year_id,
+                Student.roll_no == data["roll_no"],
+                Student.id != s.id,
+            )
+        )
+        if conflict:
+            raise DuplicateStudent("roll number already exists in class")
+
+    for k, v in data.items():
         setattr(s, k, v)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise DuplicateStudent("roll number already exists in class") from e
     db.refresh(s)
     return s
 

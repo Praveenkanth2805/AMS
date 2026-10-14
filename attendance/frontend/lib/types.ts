@@ -37,7 +37,26 @@ export interface AttendanceSession {
   submitted_by: string;
   submitted_at: string;
   record_count: number;
-  records: { student_id: string; status: AttendanceStatus }[];
+  records: {
+    student_id: string;
+    status: AttendanceStatus;
+    periods: boolean[] | null;
+  }[];
+}
+
+export interface KpiBucket {
+  count: number;
+  students: { student_id: string; name: string; roll_no: string; percentage: number }[];
+}
+
+export interface KpiResponse {
+  range: { start: string; end: string };
+  buckets: {
+    full: KpiBucket;
+    mid: KpiBucket;
+    low: KpiBucket;
+    no_data: KpiBucket;
+  };
 }
 
 export interface DashboardSummary {

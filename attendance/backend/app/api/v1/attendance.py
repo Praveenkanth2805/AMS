@@ -1,3 +1,4 @@
+from datetime import date as date_type
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -9,28 +10,23 @@ from app.db.session import get_db
 from app.models.attendance import AttendanceSession
 from app.models.student import Student
 from app.models.user import User
-from app.schemas.attendance import (AttendanceSessionOut, AttendanceSubmit,
-                                    AttendanceTodayResponse)
-from app.services.academic_year import today_institution_tz
-from app.services.attendance import submit_attendance
-
 from app.schemas.attendance import (AttendanceBulkImportRequest,
                                     AttendanceBulkImportResult,
+                                    AttendanceSessionOut, AttendanceSubmit,
+                                    AttendanceTodayResponse,
                                     AttendanceUpdateRequest)
-from app.services.attendance import (bulk_import_attendance,
-                                     submit_attendance,
+from app.services.academic_year import today_institution_tz
+from app.services.attendance import (bulk_import_attendance, submit_attendance,
                                      update_session_records)
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 
-from datetime import date as date_type
-
 @router.get("/today", response_model=AttendanceTodayResponse)
 def today(
     class_id: UUID = Query(...),
     academic_year_id: UUID = Query(...),
-    date: date_type | None = Query(None, description="Defaults to today in institutional TZ"),
+    date: date_type | None = Query(None),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
@@ -53,7 +49,8 @@ def today(
         students=[{"id": str(s.id), "name": s.name, "roll_no": s.roll_no}
                   for s in students],
     )
-    
+
+
 @router.get("/sessions", response_model=list[AttendanceSessionOut])
 def list_sessions(class_id: UUID | None = None,
                   db: Session = Depends(get_db),
@@ -87,15 +84,6 @@ def create_session(body: AttendanceSubmit, db: Session = Depends(get_db),
         .where(AttendanceSession.id == session.id)
     )
 
-@router.post("/bulk-import", response_model=AttendanceBulkImportResult)
-def bulk_import(body: AttendanceBulkImportRequest,
-                db: Session = Depends(get_db),
-                user: User = Depends(get_current_user)):
-    """For each unique date in the payload, create a session with all
-    active students in the class marked present. Idempotent per-date."""
-    result = bulk_import_attendance(db, body, user)
-    return AttendanceBulkImportResult(**result)
-
 
 @router.put("/sessions/{session_id}/records",
             response_model=AttendanceSessionOut)
@@ -103,10 +91,17 @@ def update_records(session_id: UUID,
                    body: AttendanceUpdateRequest,
                    db: Session = Depends(get_db),
                    user: User = Depends(get_current_user)):
-    """Replace records for a session. Only works when ALLOW_ATTENDANCE_EDIT=true."""
     update_session_records(db, session_id, body.records, user)
     return db.scalar(
         select(AttendanceSession)
         .options(selectinload(AttendanceSession.records))
         .where(AttendanceSession.id == session_id)
     )
+
+
+@router.post("/bulk-import", response_model=AttendanceBulkImportResult)
+def bulk_import(body: AttendanceBulkImportRequest,
+                db: Session = Depends(get_db),
+                user: User = Depends(get_current_user)):
+    result = bulk_import_attendance(db, body, user)
+    return AttendanceBulkImportResult(**result)

@@ -36,12 +36,21 @@ class StudentCreate(StudentBase):
 
 
 class StudentUpdate(BaseModel):
+    roll_no: str | None = None
     name: str | None = None
     register_no: str | None = None
     emis: str | None = None
     umis: str | None = None
     mobile: str | None = None
     is_active: bool | None = None
+
+    @field_validator("roll_no", "name")
+    @classmethod
+    def _trim_not_blank_opt(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
 
 class StudentOut(StudentBase):

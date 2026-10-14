@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ServerApiError, serverFetchMe, type ServerUser } from "@/lib/api-server";
 import AppSidebar from "@/components/layout/AppSidebar";
 import Topbar from "@/components/layout/Topbar";
+import { UserProvider } from "@/components/providers/UserProvider";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +30,14 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="h-screen flex bg-white text-gray-900 overflow-hidden">
-      <AppSidebar user={user} />
-      <div className="flex-1 flex flex-col min-w-0 h-full">
-        <Topbar user={user} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+    <UserProvider user={user}>
+      <div className="h-screen flex bg-white text-gray-900 overflow-hidden">
+        <AppSidebar user={user} />
+        <div className="flex-1 flex flex-col min-w-0 h-full">
+          <Topbar user={user} />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </UserProvider>
   );
 }

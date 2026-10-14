@@ -2,10 +2,21 @@ from datetime import date, datetime
 from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
+from app.services.attendance_rules import PERIODS_PER_DAY
+
 
 class AttendanceItem(BaseModel):
+    """One student's per-period marks for a single day."""
     student_id: UUID
-    status: str = Field(pattern="^(present|absent)$")
+    periods: list[bool] = Field(min_length=PERIODS_PER_DAY,
+                                max_length=PERIODS_PER_DAY)
+
+    @field_validator("periods")
+    @classmethod
+    def _exact_length(cls, v: list[bool]) -> list[bool]:
+        if len(v) != PERIODS_PER_DAY:
+            raise ValueError(f"must have exactly {PERIODS_PER_DAY} periods")
+        return v
 
 
 class AttendanceSubmit(BaseModel):
@@ -26,6 +37,7 @@ class AttendanceSubmit(BaseModel):
 class AttendanceRecordOut(BaseModel):
     student_id: UUID
     status: str
+    periods: list[bool] | None = None   # None for legacy single-status rows
 
     class Config:
         from_attributes = True
@@ -50,10 +62,10 @@ class AttendanceTodayResponse(BaseModel):
     session: AttendanceSessionOut | None = None
     students: list[dict] = []
 
+
 # ---------- Bulk import ----------
 
 class AttendanceBulkRow(BaseModel):
-    """One row of the source sheet. Either name or roll_no is required."""
     date: date
     name: str | None = None
     roll_no: str | None = None
@@ -68,9 +80,9 @@ class AttendanceBulkImportRequest(BaseModel):
 class AttendanceBulkImportResult(BaseModel):
     sessions_created: int
     dates_created: list[str]
-    dates_skipped: list[str]           # already had a session
+    dates_skipped: list[str]
     students_per_session: int
-    unknown_names: list[str]           # names in sheet not found in class
+    unknown_names: list[str]
 
 
 # ---------- Update (edit mode) ----------

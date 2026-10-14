@@ -227,6 +227,12 @@ export const Api = {
       `/dashboard/summary?class_id=${classId}&academic_year_id=${academicYearId}`),
 
   // ---------------- Reports ----------------
+    attendanceReportKpi: (params: Record<string, string | undefined>) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v && qs.set(k, v));
+    return api<import("./types").KpiResponse>(`/reports/kpi?${qs.toString()}`);
+  },
+
   attendanceReport: (params: Record<string, string | undefined>) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v && qs.set(k, v));
@@ -239,8 +245,10 @@ export const Api = {
         total_present: number;
         total_absent: number;
         attendance_percentage: number;
+        working_days: number;
         submitted_sessions: number;
       };
+      working_dates: string[];
       submitted_dates: string[];
       rows: {
         student_id: string;

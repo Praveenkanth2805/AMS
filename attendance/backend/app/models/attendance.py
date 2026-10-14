@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from sqlalchemy import (Date, DateTime, ForeignKey, Integer, Enum,
                         UniqueConstraint, CheckConstraint, func)
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -46,8 +46,15 @@ class AttendanceRecord(Base):
     student_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("students.id", ondelete="RESTRICT"), nullable=False)
     attendance_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Day-level status (computed from periods on submit; source of truth for reports)
     status: Mapped[str] = mapped_column(
         Enum("present", "absent", name="attendance_status"), nullable=False)
+
+    # Per-period presence: [P1, P2, P3, P4, P5] — booleans.
+    # NULL for legacy single-period records → read as [status==present]*5.
+    periods: Mapped[list[bool] | None] = mapped_column(JSONB, nullable=True)
+
     marked_by: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
